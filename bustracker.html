@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Tracker - Real-time Location Sharing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <style>
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        #map {
+            width: 100%;
+            height: 450px;
+        }
+        .mapboxgl-ctrl-logo {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="max-w-4xl mx-auto p-4">
+        <!-- Header -->
+        <div class="text-center mb-6 pt-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                </svg>
+            </div>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">Bus Tracker</h1>
+            <p class="text-gray-600">Share your real-time location with passengers</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 mb-4">
+            <!-- Not Tracking View -->
+            <div id="notTrackingView" class="text-center">
+                <div class="mb-6">
+                    <div class="inline-flex items-center justify-center w-24 h-24 bg-blue-100 rounded-full mb-4">
+                        <svg class="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Start Tracking</h2>
+                    <p class="text-gray-600">Generate a unique tracking ID and start sharing your location</p>
+                </div>
+
+                <button onclick="startTracking()" class="w-full bg-blue-600 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl">
+                    Start Broadcasting Location
+                </button>
+
+                <div id="errorMessage" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+            </div>
+
+            <!-- Tracking View -->
+            <div id="trackingView" class="hidden">
+                <!-- Tracking ID Display -->
+                <div class="mb-6 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl text-white">
+                    <div class="text-sm font-medium mb-2 opacity-90">Your Tracking ID</div>
+                    <div class="flex items-center justify-between">
+                        <div id="trackingIdDisplay" class="text-2xl font-bold font-mono"></div>
+                        <div class="flex gap-2">
+                            <button onclick="copyTrackingId()" class="p-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all" title="Copy to clipboard">
+                                <svg id="copyIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                <svg id="checkIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </button>
+                            <button onclick="toggleQR()" class="p-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all" title="Show QR Code">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                </svg>
+                            </button>
+                            <button onclick="shareTracking()" class="p-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all" title="Share">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code Display -->
+                <div id="qrCodeSection" class="mb-6 p-4 bg-gray-50 rounded-xl hidden">
+                    <div class="text-center mb-3">
+                        <h3 class="font-semibold text-gray-900">Scan to Track</h3>
+                        <p class="text-sm text-gray-600">Passengers can scan this QR code</p>
+                    </div>
+                    <div class="max-w-xs mx-auto">
+                        <img id="qrCodeImage" src="" alt="QR Code" class="w-full h-auto rounded-lg border-2 border-gray-200">
+                    </div>
+                </div>
+
+                <!-- Map Container -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold text-gray-900">Live Location</h3>
+                        <div class="flex items-center gap-2">
+                            <div class="relative">
+                                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <div class="absolute inset-0 w-2 h-2 bg-green-500 rounded-full pulse-ring"></div>
+                            </div>
+                            <span class="text-xs text-green-700 font-medium">Broadcasting</span>
+                        </div>
+                    </div>
+                    <div id="map" class="rounded-xl overflow-hidden border-2 border-gray-200"></div>
+                </div>
+
+                <!-- Location Stats -->
+                <div id="locationStats" class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Speed</div>
+                        <div class="text-2xl font-bold text-gray-900">
+                            <span id="speedDisplay">0</span> <span class="text-sm font-normal">km/h</span>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Accuracy</div>
+                        <div class="text-2xl font-bold text-gray-900">
+                            ±<span id="accuracyDisplay">0</span> <span class="text-sm font-normal">m</span>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1 flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                            </svg>
+                            Direction
+                        </div>
+                        <div class="text-lg font-bold text-gray-900" id="headingDisplay">N/A</div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Coordinates</div>
+                        <div class="text-xs font-mono text-gray-900" id="coordsDisplay">--, --</div>
+                    </div>
+                </div>
+
+                <!-- Server Status -->
+                <div id="serverStatus" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span class="text-blue-700 text-sm font-medium">Sending to server...</span>
+                    <span class="text-blue-600 text-xs ml-auto" id="updateCount">0 updates sent</span>
+                </div>
+
+                <!-- Stop Button -->
+                <button onclick="stopTracking()" class="w-full bg-red-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-red-600 transition-colors">
+                    Stop Tracking
+                </button>
+
+                <div id="trackingError" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm hidden"></div>
+            </div>
+        </div>
+
+        <!-- Info Card -->
+        <div class="bg-white bg-opacity-60 backdrop-blur rounded-xl p-4 text-sm text-gray-600">
+            <h3 class="font-semibold text-gray-900 mb-2">How it works:</h3>
+            <ol class="list-decimal list-inside space-y-1">
+                <li>Click "Start Broadcasting Location" to generate a tracking ID</li>
+                <li>Allow location permissions when prompted</li>
+                <li>Share the ID or QR code with passengers</li>
+                <li>Your location is sent to the server continuously</li>
+                <li>Passengers can track the bus in real-time using the tracking ID</li>
+                <li>Click "Stop Tracking" when the journey is complete</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURATION - EDIT THESE VALUES
+        // ============================================
+        const MAPBOX_TOKEN = 'pk.eyJ1IjoicHJpdGh2aXdpdGgiLCJhIjoiY21qeDF6bGN3MGxvNzNmcjJxOThpcmQzayJ9.MLtVoDzJ_4yizAxgibwI-w'; // Put your Mapbox token here
+        const SERVER_URL = 'http://localhost:5000';    // Your server URL
+        // ============================================
+        
+        // State
+        let trackingId = '';
+        let isTracking = false;
+        let watchId = null;
+        let currentLocation = null;
+        let map = null;
+        let marker = null;
+        let updateCount = 0;
+        let pathCoordinates = [];
+
+        // Generate unique tracking ID
+        function generateTrackingId() {
+            const prefix = 'BUS';
+            const random = Math.random().toString(36).substring(2, 9).toUpperCase();
+            return `${prefix}-${random}`;
+        }
+
+        // Format speed (m/s to km/h)
+        function formatSpeed(speed) {
+            if (speed === null || speed === undefined) return '0';
+            return (speed * 3.6).toFixed(1);
+        }
+
+        // Format heading
+        function formatHeading(heading) {
+            if (heading === null || heading === undefined) return 'N/A';
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const index = Math.round(heading / 45) % 8;
+            return `${directions[index]} (${Math.round(heading)}°)`;
+        }
+
+        // Show error
+        function showError(message, isTracking = false) {
+            const errorElement = isTracking ? 
+                document.getElementById('trackingError') : 
+                document.getElementById('errorMessage');
+            
+            errorElement.textContent = message;
+            errorElement.classList.remove('hidden');
+        }
+
+        // Initialize map
+        function initMap(lat, lng) {
+            if (MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN_HERE') {
+                showError('Please add your Mapbox token in the HTML file', true);
+                return;
+            }
+
+            mapboxgl.accessToken = MAPBOX_TOKEN;
+            
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v12',
+                center: [lng, lat],
+                zoom: 15
+            });
+
+            // Add navigation controls
+            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+            // Create custom marker
+            const el = document.createElement('div');
+            el.style.width = '40px';
+            el.style.height = '40px';
+            el.innerHTML = `
+                <div style="
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #3b82f6;
+                    border-radius: 50%;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                    border: 3px solid white;
+                    position: relative;
+                ">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div style="
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        background: #3b82f6;
+                        border-radius: 50%;
+                        animation: pulse-ring 2s infinite;
+                    "></div>
+                </div>
+            `;
+
+            marker = new mapboxgl.Marker(el)
+                .setLngLat([lng, lat])
+                .addTo(map);
+
+            // Add path source and layer
+            map.on('load', () => {
+                map.addSource('route', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        properties: {},
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: [[lng, lat]]
+                        }
+                    }
+                });
+
+                map.addLayer({
+                    id: 'route',
+                    type: 'line',
+                    source: 'route',
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#3b82f6',
+                        'line-width': 4,
+                        'line-opacity': 0.7
+                    }
+                });
+            });
+        }
+
+        // Update map location
+        function updateMapLocation(lat, lng) {
+            if (marker) {
+                marker.setLngLat([lng, lat]);
+            }
+            
+            if (map) {
+                map.flyTo({
+                    center: [lng, lat],
+                    zoom: 15,
+                    duration: 1000
+                });
+
+                // Update path
+                pathCoordinates.push([lng, lat]);
+                
+                // Keep only last 100 points
+                if (pathCoordinates.length > 100) {
+                    pathCoordinates.shift();
+                }
+
+                if (map.getSource('route')) {
+                    map.getSource('route').setData({
+                        type: 'Feature',
+                        properties: {},
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: pathCoordinates
+                        }
+                    });
+                }
+            }
+        }
+
+        // Send location to server
+        async function sendLocationToServer(locationData) {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/location`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(locationData),
+                });
+
+                if (response.ok) {
+                    updateCount++;
+                    document.getElementById('updateCount').textContent = `${updateCount} updates sent`;
+                    
+                    // Update server status to success
+                    const statusDiv = document.getElementById('serverStatus');
+                    statusDiv.className = 'mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2';
+                    statusDiv.innerHTML = `
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span class="text-green-700 text-sm font-medium">Server connected</span>
+                        <span class="text-green-600 text-xs ml-auto" id="updateCount">${updateCount} updates sent</span>
+                    `;
+                } else {
+                    throw new Error('Server responded with error');
+                }
+            } catch (err) {
+                console.error('Error sending location:', err);
+                
+                // Update server status to error
+                const statusDiv = document.getElementById('serverStatus');
+                statusDiv.className = 'mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2';
+                statusDiv.innerHTML = `
+                    <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span class="text-red-700 text-sm font-medium">Server connection failed - Check if server is running</span>
+                `;
+            }
+        }
+
+        // Start tracking
+        async function startTracking() {
+            if (!navigator.geolocation) {
+                showError('Geolocation is not supported by your browser');
+                return;
+            }
+
+            trackingId = generateTrackingId();
+            document.getElementById('trackingIdDisplay').textContent = trackingId;
+            
+            // Show tracking view
+            document.getElementById('notTrackingView').classList.add('hidden');
+            document.getElementById('trackingView').classList.remove('hidden');
+            
+            isTracking = true;
+            pathCoordinates = [];
+
+            // Start watching position
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    const locationData = {
+                        trackId: trackingId,
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        speed: position.coords.speed || 0,
+                        accuracy: position.coords.accuracy,
+                        heading: position.coords.heading,
+                        timestamp: new Date().toISOString(),
+                        isActive: true
+                    };
+
+                    currentLocation = locationData;
+                    
+                    // Initialize map on first position
+                    if (!map) {
+                        initMap(position.coords.latitude, position.coords.longitude);
+                    } else {
+                        updateMapLocation(position.coords.latitude, position.coords.longitude);
+                    }
+                    
+                    // Update UI
+                    document.getElementById('speedDisplay').textContent = formatSpeed(position.coords.speed);
+                    document.getElementById('accuracyDisplay').textContent = Math.round(position.coords.accuracy);
+                    document.getElementById('headingDisplay').textContent = formatHeading(position.coords.heading);
+                    document.getElementById('coordsDisplay').textContent = 
+                        `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+
+                    // Send location to server
+                    await sendLocationToServer(locationData);
+                },
+                (err) => {
+                    showError(`Error getting location: ${err.message}`, true);
+                    console.error(err);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                }
+            );
+        }
+
+        // Stop tracking
+        async function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // Send final inactive status to server
+            if (trackingId && currentLocation) {
+                try {
+                    await fetch(`${SERVER_URL}/api/location`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            ...currentLocation,
+                            isActive: false
+                        }),
+                    });
+                } catch (err) {
+                    console.error('Error sending final location:', err);
+                }
+            }
+
+            // Clean up map
+            if (map) {
+                map.remove();
+                map = null;
+                marker = null;
+            }
+
+            isTracking = false;
+            currentLocation = null;
+            trackingId = '';
+            updateCount = 0;
+            pathCoordinates = [];
+            
+            // Show not tracking view
+            document.getElementById('trackingView').classList.add('hidden');
+            document.getElementById('notTrackingView').classList.remove('hidden');
+            document.getElementById('qrCodeSection').classList.add('hidden');
+        }
+
+        // Copy tracking ID to clipboard
+        function copyTrackingId() {
+            navigator.clipboard.writeText(trackingId);
+            
+            // Show check icon
+            document.getElementById('copyIcon').classList.add('hidden');
+            document.getElementById('checkIcon').classList.remove('hidden');
+            
+            setTimeout(() => {
+                document.getElementById('copyIcon').classList.remove('hidden');
+                document.getElementById('checkIcon').classList.add('hidden');
+            }, 2000);
+        }
+
+        // Toggle QR code
+        function toggleQR() {
+            const qrSection = document.getElementById('qrCodeSection');
+            const qrImage = document.getElementById('qrCodeImage');
+            
+            if (qrSection.classList.contains('hidden')) {
+                // Generate QR code URL with tracking ID
+                const trackingText = `Tracking ID: ${trackingId}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingText)}`;
+                qrImage.src = qrUrl;
+                qrSection.classList.remove('hidden');
+            } else {
+                qrSection.classList.add('hidden');
+            }
+        }
+
+        // Share tracking
+        async function shareTracking() {
+            const shareText = `Track my bus in real-time!\nTracking ID: ${trackingId}`;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Track My Bus',
+                        text: shareText
+                    });
+                } catch (err) {
+                    console.log('Error sharing:', err);
+                    copyTrackingId();
+                }
+            } else {
+                // Fallback to copying
+                navigator.clipboard.writeText(trackingId);
+                copyTrackingId();
+            }
+        }
+    </script>
+</body>
+</html>
